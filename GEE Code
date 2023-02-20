@@ -1,0 +1,72 @@
+// Year 2016
+var slide = ee.FeatureCollection("projects/ee-nationalslides/assets/slide_R2016"),
+nslide = ee.FeatureCollection("projects/ee-nationalslides/assets/nslide_R2016"),
+boundary = ee.FeatureCollection("users/geokshitij/Nepal"),
+LSM_visualization = {"opacity":0.8,"bands":["classification"],"min":0,"max":1,"palette":["fafff9","fffee7","cbff91","f7ffb1","fff46e","fff812","ffdbd0","ff8276","ff0404","ff0000","ff0000"],};
+
+var TAGEE = require('users/joselucassafanelli/TAGEE:TAGEE-functions');
+
+// Loading SRTM 30 m
+var demSRTM = ee.Image('USGS/SRTMGL1_003')
+.clip(boundary).rename('DEM');
+
+// Smoothing filter
+var gaussianFilter = ee.Kernel.gaussian({radius: 3, sigma: 2, units: 'pixels', normalize: true});
+
+// Smoothing the DEM with the gaussian kernel.
+var demSRTM = demSRTM.convolve(gaussianFilter).resample("bilinear");
+
+// Terrain analysis + additional rain params
+var DEMAttributes = TAGEE.terrainAnalysis(TAGEE, demSRTM, boundary);
+var rain = ee.Image("projects/foresthkh/assets/2001_2020");
+var rain = rain.convolve(gaussianFilter).resample("bilinear");
+var parameters = DEMAttributes.addBands(rain);
+print("The parameters are: ", parameters)
+
+// 0. Cheking the area/bounding box/Region of Interest
+Map.addLayer(boundary,{color:'blue',width:3},'boundary') ;
+
+// 1. Inventory preparation--------------
+// Let's divide the data
+var withRandom = slide.randomColumn('random');
+var split = 0.7;
+var tr_slide = withRandom.filter(ee.Filter.lt('random', split));
+var ts_slide = withRandom.filter(ee.Filter.gte('random', split));
+var withRandom = nslide.randomColumn('random');
+var split = 0.7;
+var tr_nslide = withRandom.filter(ee.Filter.lt('random', split));
+var ts_nslide = withRandom.filter(ee.Filter.gte('random', split));
+
+// Merge training data, the other data is kept for testing AuC
+var trainingfc= tr_slide.merge(tr_nslide);
+
+// 4. Data sampling and model setup
+var bands = parameters.bandNames();
+var training= parameters.sampleRegions({collection: trainingfc,properties: ['slide'],scale: 30 });
+
+// The random forest model
+var classifier = ee.Classifier.smileRandomForest(10).setOutputMode('PROBABILITY').train({
+features: training,classProperty: 'slide',inputProperties: bands });
+var probability = parameters.select(bands).classify(classifier);
+var temp_prob = probability.multiply(100);
+var map_export = temp_prob.toByte();
+var dict = classifier.explain();
+// print('Explain:',dict);
+var variable_importance = ee.Feature(null, ee.Dictionary(dict).get('importance'));
+var chart =ui.Chart.feature.byProperty(variable_importance).setChartType('ColumnChart')
+.setOptions({title: 'LSM variable importance',legend: {position: 'none'},hAxis: {title: 'Parameter'},vAxis: {title: 'Importance'}});
+print(chart);
+var error = ee.Dictionary(dict).get('outOfBagErrorEstimate');
+// print('out Of Bag Error Estimate:', error);
+
+// Hillshade
+var elevation = ee.Image(ee.Image("USGS/SRTMGL1_003"));
+var exaggeration = 5;
+var hillshade = ee.Terrain.hillshade(elevation.multiply(exaggeration));
+Map.addLayer(hillshade.clip(boundary), null, 'Hillshade');
+
+var probability = probability.clip(boundary);
+
+Map.addLayer(probability,LSM_visualization,'R2016 Susceptibility',true);
+
+// DONE! You may export the probability raster and use as your need.
