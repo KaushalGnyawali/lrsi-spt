@@ -23,10 +23,8 @@ var rain = rain.convolve(gaussianFilter).resample("bilinear");
 var parameters = DEMAttributes.addBands(rain);
 print("The parameters are: ", parameters)
 
-// 0. Cheking the area/bounding box/Region of Interest
 Map.addLayer(boundary,{color:'blue',width:3},'boundary') ;
 
-// 1. Inventory preparation--------------
 // Let's divide the data
 var withRandom = slide.randomColumn('random');
 var split = 0.7;
@@ -40,7 +38,7 @@ var ts_nslide = withRandom.filter(ee.Filter.gte('random', split));
 // Merge training data, the other data is kept for testing AuC
 var trainingfc= tr_slide.merge(tr_nslide);
 
-// 4. Data sampling and model setup
+// Data sampling and model setup
 var bands = parameters.bandNames();
 var training= parameters.sampleRegions({collection: trainingfc,properties: ['slide'],scale: 30 });
 
@@ -52,10 +50,12 @@ var temp_prob = probability.multiply(100);
 var map_export = temp_prob.toByte();
 var dict = classifier.explain();
 // print('Explain:',dict);
+
 var variable_importance = ee.Feature(null, ee.Dictionary(dict).get('importance'));
 var chart =ui.Chart.feature.byProperty(variable_importance).setChartType('ColumnChart')
 .setOptions({title: 'LSM variable importance',legend: {position: 'none'},hAxis: {title: 'Parameter'},vAxis: {title: 'Importance'}});
 print(chart);
+
 var error = ee.Dictionary(dict).get('outOfBagErrorEstimate');
 // print('out Of Bag Error Estimate:', error);
 
