@@ -4,7 +4,8 @@ Link:
 https://arcg.is/1T59ie
 
 For details about the research, please refer to and cite the following paper: 
-Gnyawali, K., Dahal, K., Talchabhadel, R., & Nirandjan, S. (2023). Framework for rainfall-triggered landslide-prone critical infrastructure zonation. Science of The Total Environment, 162242.
+
+Gnyawali, K., Dahal, K., Talchabhadel, R., & Nirandjan, S. (2023). [Framework for rainfall-triggered landslide-prone critical infrastructure zonation](https://www.sciencedirect.com/science/article/pii/S0048969723008586). Science of The Total Environment, 162242.
 
 The Google Earth Engine code is in GEE code files.
 The rainfall indices, critical infrastructure spatial index and landslide susceptibility data layers are in LIMS_SPT_Layers.7z zipped package. 
